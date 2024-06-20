@@ -1,6 +1,7 @@
 import os
 import shutil
 import torch
+from pretty_midi import PrettyMIDI
 from torch import nn
 from torch import optim
 import time
@@ -8,6 +9,10 @@ import numpy as np
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from torch.utils.data.sampler import Sampler
 from torch.optim import SGD
+
+from midi import save_midi, save_midi_pianoroll
+
+import logging
 
 
 def ensure_empty_directory_exists(dirname):
@@ -22,8 +27,6 @@ def filenames_from_splitfile(split_file):
 
 
 def train(cuda, run_path, net, optimizer, scheduler, n_epochs, train_loader, valid_loader, logger):
-    epoch = 0
-
     best_valid_f = -np.inf
     best_valid_loss = np.inf
 
@@ -36,15 +39,15 @@ def train(cuda, run_path, net, optimizer, scheduler, n_epochs, train_loader, val
 
     for epoch in range(n_epochs):
         #############
-        print('epoch {}/{}'.format(epoch, n_epochs))
-        print('training...')
+        logging.info('epoch {}/{}'.format(epoch, n_epochs))
+        logging.info('training...')
         train_loss = train_one_epoch(cuda, net, optimizer, train_loader)
         logger.add_scalar('train/loss', train_loss, global_step=epoch)
 
         #############
-        print('validating...')
+        logging.info('validating...')
         valid_loss, p, r, f = evaluate(cuda, net, valid_loader)
-        print('l {:8.4f} p {:4.2f}, r {:4.2f}, f {:4.2f}'.format(valid_loss, p, r, f))
+        logging.info('l {:8.4f} p {:4.2f}, r {:4.2f}, f {:4.2f}'.format(valid_loss, p, r, f))
         logger.add_scalar('valid/loss', valid_loss, global_step=epoch)
         logger.add_scalar('valid/p', p, global_step=epoch)
         logger.add_scalar('valid/r', r, global_step=epoch)
@@ -114,7 +117,7 @@ def train_one_epoch(cuda, net, optimizer, loader):
 
         # bail if NaN or Inf is encountered
         if np.isnan(smoothed_loss) or np.isinf(smoothed_loss):
-            print('encountered NaN/Inf in smoothed_loss "{}"'.format(smoothed_loss))
+            logging.info('encountered NaN/Inf in smoothed_loss "{}"'.format(smoothed_loss))
             exit(-1)
 
         t_end = time.time()
@@ -122,7 +125,7 @@ def train_one_epoch(cuda, net, optimizer, loader):
         if t_elapsed > 60:
             batches_per_second = current_count / t_elapsed
             t_rest = ((n_batches - total_count) / batches_per_second) / 3600.
-            print('bps {:4.2f} eta {:4.2f} [h]'.format(batches_per_second, t_rest))
+            logging.info('bps {:4.2f} eta {:4.2f} [h]'.format(batches_per_second, t_rest))
             t_elapsed = 0
             current_count = 0
     return smoothed_loss
@@ -166,7 +169,7 @@ def find_learnrate(cuda, net, optimizer, loader):
         if t_elapsed > 60:
             batches_per_second = current_count / t_elapsed
             t_rest = ((n_batches - total_count) / batches_per_second) / 3600.
-            print('bps {:4.2f} eta {:4.2f} [h]'.format(batches_per_second, t_rest))
+            logging.info('bps {:4.2f} eta {:4.2f} [h]'.format(batches_per_second, t_rest))
             t_elapsed = 0
             current_count = 0
     return losses, lrs
@@ -217,6 +220,14 @@ def evaluate_one_loader(cuda, net, loader):
 
     y_true = np.vstack(y_true)
     y_pred = np.vstack(y_pred)
+
+    # todo how do i convert this y_pred into midi?
+    # how does hawthorne2017onsets achieve this?
+    midi_path = loader.sampler.data_source.metadata['audiofilename']
+    path = os.path.join('predictions', os.path.basename(midi_path) + '.pred.mid')
+    midi: PrettyMIDI = save_midi(path, y_pred)
+    save_midi_pianoroll(os.path.dirname(path), os.path.basename(midi_path), midi)
+
     p, r, f, _ = prfs(y_true, y_pred, average='micro')
     return smoothed_loss, p, r, f
 

@@ -15,6 +15,10 @@ import os
 
 import argparse
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 
 def main():
     parser = argparse.ArgumentParser(description=
@@ -31,16 +35,18 @@ def main():
 
     cuda = False
     if args.device.startswith('cpu'):
+        logging.info("Running on CPU")
         cuda = False
     elif args.device.startswith('cuda'):
+        logging.info("Running on GPU")
         cuda = True
     else:
-        print('unknown device type "{}"'.format(args.device))
+        logging.info('unknown device type "{}"'.format(args.device))
         exit(-1)
 
     run_path = args.run_path
     if os.path.exists(run_path):
-        print('run_path "{}" already exists!'.format(run_path))
+        logging.info('run_path "{}" already exists!'.format(run_path))
         exit(-1)
 
     ##########################################
@@ -48,6 +54,7 @@ def main():
     train_filenames = filenames_from_splitfile(os.path.join(args.splits, 'train'))
     train_sequences = datasets.get_sequences(train_filenames)
 
+    logging.info("Creating Dataset based on sequences")
     train_dataset = ConcatDataset(train_sequences)
 
     batch_size = 128
@@ -57,8 +64,9 @@ def main():
     # as opposed to 'arbitrary number of steps until we validate'
     # n_steps = 8192
     n_steps = len(train_dataset) // batch_size
-    print('adjusted n_steps', n_steps)
+    logging.info('adjusted n_steps', n_steps)
 
+    logging.info('Creating DataLoader')
     # one train loader for all train sequences
     train_loader = DataLoader(
         train_dataset,
@@ -99,7 +107,7 @@ def main():
 
     net = net_class()
     if args.model == 'AllConv2016':
-        print('choosing AllConv2016 learnrate and learnrate schedule!')
+        logging.info('choosing AllConv2016 learnrate and learnrate schedule!')
         # this does not train all that well ... validation loss stays high all the time?
         optimizer = optim.SGD(
             net.parameters(),
@@ -115,7 +123,7 @@ def main():
             gamma=0.5
         )
     else:
-        print('choosing VGGNet2016 learnrate and learnrate schedule!')
+        logging.info('choosing VGGNet2016 learnrate and learnrate schedule!')
         # this leads to the results from 2016 in ~5 epochs
         optimizer = optim.SGD(
             net.parameters(),
