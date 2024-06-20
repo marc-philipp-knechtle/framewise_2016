@@ -1,0 +1,123 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: &jobname framewise-2016-cluster # this is an arbitrary name for the local container
+spec:
+  template:
+    spec:
+      priorityClassName: research-low
+      # nodeSelector:
+      #     gputype: gtx1080ti
+      containers:
+        - name: *jobname # gets read as "test-job" as it links to the variable definition above
+          image: ls6-stud-registry.informatik.uni-wuerzburg.de/extch1-framewise_2016:0.0.1
+          imagePullPolicy: "IfNotPresent"
+          env:
+              - name: NUMBA_CACHE_DIR
+                value: "/tmp/numba_cache"
+              - name: MPLCONFIGDIR
+                value: "/workspace/.config/matplotlib"
+          resources:
+            limits: &resources
+              nvidia.com/gpu: "1"
+              cpu: "16"
+              # /runs/Archive/VGG-1
+              # The 64 gb are rather large for a model which should be considered relatively simple
+              # However, I assume that the training loads the complete training files into memory
+              # Therefore a large memory is required
+              # /runs/Archive/VGG-2
+              # Update: 64Gi also failed -> failed on epoch 30/500 ? No Idea why this happens with that much memory
+              memory: "128Gi"
+            requests: *resources # sets requests = limits
+          command: ["conda", "run", "-n", "framewise_2016", "python3", "train.py", "splits/configuration-II", "runs/VGG", "VGGNet2016"]
+          # This command was used for debugging of the pods (infinite sleeping)
+          # command: ["/bin/bash", "-c", "--"]
+          # args: [ "while true; do sleep 30; done;" ]
+          volumeMounts:
+              - mountPath: /workspace/data # directory IN the container
+                name: &ceph_data data # matches volume-name from below
+              - mountPath: /workspace/runs # directory IN the container
+                name: &ceph_runs runs # matches volume-name from below
+              - mountPath: /workspace/splits
+                name: &ceph_splits splits
+              - mountPath: /workspace/predictions
+                name: &ceph_predictions predictions
+              - mountPath: /workspace/joblib_cache
+                name: &ceph_joblib joblib-cache
+              - mountPath: /workspace/.config/
+                name: &ceph_config config
+              - mountPath: /dev/shm # fixes a common pytorch issue. just always mount this here
+                name: dshm
+      imagePullSecrets:
+        - name: lsx-registry
+      restartPolicy: "Never"
+      volumes:
+          - name: *ceph_data
+            cephfs:
+                monitors:
+                    - 132.187.14.16
+                    - 132.187.14.17
+                    - 132.187.14.19
+                    - 132.187.14.20  # Not important for you, just copy along
+                user: extch1  # <namespace>
+                path: "/home/ext/ch1/cluster-framewise_2016/data" # The path you want to mount
+                secretRef: # The name of the secret for auth. Is always "ceph-secret"
+                  name: ceph-secret
+          - name: *ceph_runs
+            cephfs:
+                monitors:
+                    - 132.187.14.16
+                    - 132.187.14.17
+                    - 132.187.14.19
+                    - 132.187.14.20  # Not important for you, just copy along
+                user: extch1  # <namespace>
+                path: "/home/ext/ch1/cluster-framewise_2016/runs" # The path you want to mount
+                secretRef: # The name of the secret for auth. Is always "ceph-secret"
+                    name: ceph-secret
+          - name: *ceph_splits
+            cephfs:
+                monitors:
+                    - 132.187.14.16
+                    - 132.187.14.17
+                    - 132.187.14.19
+                    - 132.187.14.20
+                user: extch1
+                path: "/home/ext/ch1/cluster-framewise_2016/splits"
+                secretRef:
+                    name: ceph-secret
+          - name: *ceph_predictions
+            cephfs:
+                monitors:
+                    - 132.187.14.16
+                    - 132.187.14.17
+                    - 132.187.14.19
+                    - 132.187.14.20
+                user: extch1
+                path: "/home/ext/ch1/cluster-framewise_2016/predictions"
+                secretRef:
+                    name: ceph-secret
+          - name: *ceph_joblib
+            cephfs:
+                monitors:
+                    - 132.187.14.16
+                    - 132.187.14.17
+                    - 132.187.14.19
+                    - 132.187.14.20
+                user: extch1
+                path: "/home/ext/ch1/cluster-framewise_2016/joblib-cache"
+                secretRef:
+                    name: ceph-secret
+          - name: *ceph_config
+            cephfs:
+                monitors:
+                    - 132.187.14.16
+                    - 132.187.14.17
+                    - 132.187.14.19
+                    - 132.187.14.20
+                user: extch1
+                path: "/home/ext/ch1/cluster-framewise_2016/.config"
+                secretRef:
+                    name: ceph-secret
+          - name: dshm # "needs" to be copied along, see above
+            emptyDir:
+                medium: "Memory"
