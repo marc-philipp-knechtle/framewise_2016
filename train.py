@@ -33,7 +33,6 @@ def main():
     parser.add_argument('--device', type=str, default='cuda')
     args = parser.parse_args()
 
-    cuda = False
     if args.device.startswith('cpu'):
         logging.info("Running on CPU")
         cuda = False
