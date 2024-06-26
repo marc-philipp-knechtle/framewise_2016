@@ -1,3 +1,6 @@
+import random
+import string
+
 from torch import optim
 from torch.utils.data.sampler import SequentialSampler
 from torch.utils.data.dataset import ConcatDataset
@@ -18,6 +21,18 @@ import argparse
 import logging
 
 logging.basicConfig(level=logging.INFO)
+
+
+def create_unique_directory(base_path: str) -> str:
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+        return base_path
+    while True:
+        random_suffix = ''.join(random.choices(string.ascii_lowercase, k=2))
+        new_path = f'{base_path}_{random_suffix}'
+        if not os.path.exists(new_path):
+            os.makedirs(new_path)
+            return new_path
 
 
 def main():
@@ -43,10 +58,7 @@ def main():
         logging.info('unknown device type "{}"'.format(args.device))
         exit(-1)
 
-    run_path = args.run_path
-    if os.path.exists(run_path):
-        logging.info('run_path "{}" already exists!'.format(run_path))
-        exit(-1)
+    run_path = create_unique_directory(args.run_path)
 
     ##########################################
     # prepare train data
