@@ -75,7 +75,7 @@ def main():
     # as opposed to 'arbitrary number of steps until we validate'
     # n_steps = 8192
     n_steps = len(train_dataset) // batch_size
-    logging.info('adjusted n_steps', n_steps)
+    logging.info(f'adjusted n_steps{n_steps}')
 
     logging.info('Creating DataLoader')
     # one train loader for all train sequences
