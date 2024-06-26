@@ -32,6 +32,7 @@ def create_unique_directory(base_path: str) -> str:
         new_path = f'{base_path}_{random_suffix}'
         if not os.path.exists(new_path):
             os.makedirs(new_path)
+            logging.info(f"Created new directory {new_path}")
             return new_path
 
 
