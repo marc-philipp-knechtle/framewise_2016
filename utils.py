@@ -12,6 +12,8 @@ from torch.optim import SGD
 
 from midi import save_midi, save_midi_pianoroll
 
+from tensorboardX import SummaryWriter
+
 import logging
 
 
@@ -26,7 +28,7 @@ def filenames_from_splitfile(split_file):
     return [f.strip() for f in filenames]
 
 
-def train(cuda, run_path, net, optimizer, scheduler, n_epochs, train_loader, valid_loader, logger):
+def train(cuda, run_path, net, optimizer, scheduler, n_epochs, train_loader, valid_loader, logger: SummaryWriter):
     best_valid_f = -np.inf
     best_valid_loss = np.inf
 
