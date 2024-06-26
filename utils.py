@@ -54,6 +54,7 @@ def train(cuda, run_path, net, optimizer, scheduler, n_epochs, train_loader, val
         logger.add_scalar('valid/p', p, global_step=epoch)
         logger.add_scalar('valid/r', r, global_step=epoch)
         logger.add_scalar('valid/f', f, global_step=epoch)
+        logger.add_scalar('epoch', epoch, global_step=epoch)
 
         #############
         # always save current state
